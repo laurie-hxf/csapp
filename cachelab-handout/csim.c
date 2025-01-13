@@ -9,17 +9,21 @@ void printSummary(int hits, int misses, int evictions);
 
 typedef struct line
 {
-    int S;
+    // int S;
     int time;
     int tag;
 }line;
-void simulate_cache(line *cache, char op, unsigned long address);
+void simulate_cache(line *cache, char op, unsigned long address,int b,int s,int E,int verbose,int &hits,int &misses,int &evictions,int time,int size);
 int main(int argc, char* argv[])
 {
     int verbose = 0; // 是否启用详细模式
     int s = -1, E = -1, b = -1; // 参数初始化为无效值
     int S=-1;
     char* tracefile = NULL;
+    int hits=0;
+    int misses=0;
+    int evictions=0;
+    int time=0;
     int option;
     while ((option = getopt(argc, argv, "hvs:E:b:t:")) != -1)
     {
@@ -60,8 +64,9 @@ int main(int argc, char* argv[])
     unsigned long address;
     int size;
     while (fscanf(file, " %c %lx,%d", &op, &address, &size) == 3) {
+        time++;
         if (op == 'I') continue;  // 忽略指令加载
-        simulate_cache(cache, op, address);
+        simulate_cache(cache, op, address,b,s,E,verbose,hits,misses,evictions,time,size);
     }
     fclose(file);
     free(cache);
@@ -69,8 +74,67 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-void simulate_cache(line *cache, char op, unsigned long address)
+void simulate_cache(line *cache, char op, unsigned long address,int b,int s,int E,int verbose,int &hits,int &misses,int &evictions,int time,int size)
 {
+    int s_=address>>b&((1<<s)-1);
+    int tag_=address>>(b+s);
+    switch (op)
+    {
+    case 'L':
+        char judge=1;
+        for (int i=0;i<E;i++){
+            if (!cache[s_+i]){
+                misses++;
+                cache[s_+i].tag=tag_;
+                cache[s_+i].time=time;
+                judge=0;
+                if (verbose)
+                {
+                    printf("%s %d,%d miss",op,address,size);
+                }
+                break;
+            }
+            if (cache[s_+i].tag==tag_)
+            {
+                hits++;
+                judge=0;
+                cache[s_+i].time=time;
+                if (verbose)
+                {
+                    printf("%s %d,%d hit",op,address,size);
+                }
+            }
+        }
+        if (judge)                      //缓存未命中
+        {
+            misses++;
+            int record=cache[s_].time;
+            int change=0;
+            for (int i=1;i<E;i++)
+            {
+                if (cache[s_+i].time<record)
+                {
+                    change=i;
+                    record=cache[s_+i].time;
+                }
+            }
+            cache[s_+change].time=time;
+            cache[s_+change].tag=tag_;
+            if (verbose)
+            {
+                printf("%s %d,%d miss eviction",op,address,size);
+            }
+        }
+        break;
+
+    case 'M':
+
+        break;
+
+    case 'S':
+
+        break;
+    }
 
 }
 
